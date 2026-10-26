@@ -4,62 +4,54 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version name for the release (e.g., 1.0.0)'
+        description: 'Version name for the release (e.g., 2.0.0)'
         required: true
-        default: '1.0.0'
+        default: '2.0.0'
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4  # Updated to the latest version
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '7.4'
-        tools: composer
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          tools: composer
 
-    - name: Install Composer dependencies without dev
-      run: composer install --no-dev
+      - name: Normalise version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
 
-    - name: Get version from user input
-      run: |
-        VERSION=${{ github.event.inputs.version }}
-        # Ensure that the version is prefixed with "v" for a valid tag name
-        if [[ $VERSION != v* ]]; then
-          VERSION="v${VERSION}"
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Check plugin header version matches
+        run: |
+          grep -q "Version:           ${VERSION}$" ai-comment-moderator.php || { echo "::error::Plugin header version does not match ${VERSION}"; exit 1; }
 
-    - name: Cleanup unnecessary files
-      run: |
-        rm -f composer.json composer.lock package.json package-lock.json README.md
+      - name: Install Composer dependencies (autoloader only)
+        run: composer install --no-dev --optimize-autoloader --no-interaction
 
-    - name: Zip the plugin
-      run: |
-        zip -r ai-comment-moderator-package.zip . -x "*.git*" -x "*.github*" -x "*.yml" -x "phpunit.xml" -x "tests/**" -x "docs/**"
+      - name: Build plugin zip
+        run: |
+          mkdir -p build/ai-comment-moderator
+          rsync -a ./ build/ai-comment-moderator/ \
+            --exclude '.git*' --exclude '.github' --exclude '.wordpress-org' --exclude 'build' --exclude 'tests' \
+            --exclude 'composer.json' --exclude 'composer.lock' --exclude '*.yml' --exclude 'phpunit.xml*'
+          cd build && zip -rq ../ai-comment-moderator.zip ai-comment-moderator
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1  # Using the latest available stable version
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-      with:
-        tag_name: ${{ env.VERSION }}  # Use the validated version tag
-        release_name: AI Comment Moderator ${{ env.VERSION }}
-        body: "Release of AI Comment Moderator plugin version ${{ env.VERSION }}."
-        draft: false
-        prerelease: false
-
-    - name: Upload to Release
-      uses: actions/upload-release-asset@v1  # Using the latest available stable version
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./ai-comment-moderator-package.zip
-        asset_name: ai-comment-moderator-package.zip
-        asset_content_type: application/zip
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: AI Comment Moderator ${{ env.TAG }}
+          generate_release_notes: true
+          files: ai-comment-moderator.zip
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
