@@ -1,20 +1,26 @@
 {
     "name": "rajanvijayan/ai-comment-moderator",
-    "description": "AI-powered comment moderator for WordPress",
+    "description": "AI-powered comment moderation for WordPress using Groq, Google Gemini or OpenAI.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Rajan Vijayan"
+        }
+    ],
+    "keywords": ["wordpress", "comments", "moderation", "spam", "groq", "llm", "ai"],
     "autoload": {
         "psr-4": {
             "AICommentModerator\\": "src/"
         }
     },
     "require": {
-        "php": ">=7.4",
-        "rajanvijayan/ai-engine": "dev-main"
+        "php": ">=7.4"
     },
-    "scripts": {
-        "post-autoload-dump": [
-            "Composer\\Installer\\PluginInstaller::postAutoloadDump"
-        ]
+    "config": {
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "7.4"
+        }
     }
 }
