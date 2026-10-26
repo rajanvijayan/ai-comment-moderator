@@ -35,7 +35,7 @@ class CommentsColumn {
 		add_filter( 'handle_bulk_actions-edit-comments', [ $this, 'handle_bulk' ], 10, 3 );
 		add_action( 'admin_notices', [ $this, 'bulk_notice' ] );
 		add_filter( 'comment_status_links', [ $this, 'status_link' ] );
-		add_action( 'pre_get_comments', [ $this, 'filter_review_queue' ] );
+		add_filter( 'comments_list_table_query_args', [ $this, 'filter_review_queue' ] );
 
 		foreach ( [ 'recheck', 'reply_send', 'reply_discard', 'reply_generate' ] as $a ) {
 			add_action( 'wp_ajax_aicm_' . $a, [ $this, 'ajax_' . $a ] );
@@ -197,16 +197,17 @@ class CommentsColumn {
 		return (int) get_comments( [ 'count' => true, 'status' => 'approve', 'meta_key' => ReplyManager::META_STATE, 'meta_value' => 'review' ] ); // phpcs:ignore WordPress.DB.SlowDBQuery
 	}
 
-	public function filter_review_queue( \WP_Comment_Query $q ): void {
-		if ( ! is_admin() || empty( $_GET['aicm_reply'] ) || 'review' !== $_GET['aicm_reply'] ) { // phpcs:ignore WordPress.Security.NonceVerification
-			return;
+	/**
+	 * Narrows the Comments list (and its pagination count) to replies awaiting
+	 * review. Uses the list-table filter so other screen counts are untouched.
+	 */
+	public function filter_review_queue( array $args ): array {
+		if ( empty( $_GET['aicm_reply'] ) || 'review' !== $_GET['aicm_reply'] ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return $args;
 		}
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'edit-comments' !== $screen->id || ! empty( $q->query_vars['count'] ) ) {
-			return;
-		}
-		$q->query_vars['meta_key']   = ReplyManager::META_STATE; // phpcs:ignore WordPress.DB.SlowDBQuery
-		$q->query_vars['meta_value'] = 'review';                 // phpcs:ignore WordPress.DB.SlowDBQuery
+		$args['meta_key']   = ReplyManager::META_STATE; // phpcs:ignore WordPress.DB.SlowDBQuery
+		$args['meta_value'] = 'review';                 // phpcs:ignore WordPress.DB.SlowDBQuery
+		return $args;
 	}
 
 	/* ------------------------------------------------------------------ */

@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir -p build/ai-comment-moderator
           rsync -a ./ build/ai-comment-moderator/ \
-            --exclude '.git*' --exclude '.github' --exclude 'build' --exclude 'tests' \
+            --exclude '.git*' --exclude '.github' --exclude '.wordpress-org' --exclude 'build' --exclude 'tests' \
             --exclude 'composer.json' --exclude 'composer.lock' --exclude '*.yml' --exclude 'phpunit.xml*'
           cd build && zip -rq ../ai-comment-moderator.zip ai-comment-moderator
 
